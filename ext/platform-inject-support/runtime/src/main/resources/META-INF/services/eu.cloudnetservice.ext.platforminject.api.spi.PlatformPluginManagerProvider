@@ -15,6 +15,7 @@
 #
 
 eu.cloudnetservice.ext.platforminject.runtime.platform.bukkit.BukkitPlatformManagerProvider
+eu.cloudnetservice.ext.platforminject.runtime.platform.multipaper.MultiPaperPlatformManagerProvider
 eu.cloudnetservice.ext.platforminject.runtime.platform.bungeecord.BungeeCordPlatformManagerProvider
 eu.cloudnetservice.ext.platforminject.runtime.platform.fabric.FabricPlatformManagerProvider
 eu.cloudnetservice.ext.platforminject.runtime.platform.minestom.MinestomPlatformManagerProvider

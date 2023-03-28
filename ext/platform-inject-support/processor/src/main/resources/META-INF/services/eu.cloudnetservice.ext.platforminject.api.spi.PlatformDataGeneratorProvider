@@ -15,6 +15,7 @@
 #
 
 eu.cloudnetservice.ext.platforminject.processor.platform.bukkit.BukkitPlatformInfoProvider
+eu.cloudnetservice.ext.platforminject.processor.platform.multipaper.MultiPaperPlatformInfoProvider
 eu.cloudnetservice.ext.platforminject.processor.platform.bungeecord.BungeeCordPlatformInfoProvider
 eu.cloudnetservice.ext.platforminject.processor.platform.fabric.FabricPlatformInfoProvider
 eu.cloudnetservice.ext.platforminject.processor.platform.minestom.MinestomPlatformInfoProvider
