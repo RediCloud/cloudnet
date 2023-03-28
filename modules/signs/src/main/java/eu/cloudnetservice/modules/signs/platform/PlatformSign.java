@@ -16,16 +16,20 @@
 
 package eu.cloudnetservice.modules.signs.platform;
 
+import eu.cloudnetservice.driver.provider.CloudServiceProvider;
 import eu.cloudnetservice.driver.registry.ServiceRegistry;
+import eu.cloudnetservice.driver.service.ServiceEnvironmentType;
 import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
 import eu.cloudnetservice.modules.bridge.BridgeServiceHelper;
 import eu.cloudnetservice.modules.bridge.player.PlayerManager;
+import eu.cloudnetservice.modules.bridge.player.executor.ServerSelectorType;
 import eu.cloudnetservice.modules.signs.Sign;
 import eu.cloudnetservice.modules.signs.configuration.SignConfigurationEntry;
 import eu.cloudnetservice.modules.signs.configuration.SignLayout;
 import eu.cloudnetservice.modules.signs.util.LayoutUtil;
 import eu.cloudnetservice.modules.signs.util.PriorityUtil;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import lombok.NonNull;
@@ -34,6 +38,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class PlatformSign<P, C> implements Comparable<PlatformSign<P, C>> {
 
   private static final PlayerManager PLAYER_MANAGER = ServiceRegistry.first(PlayerManager.class);
+  private static final CloudServiceProvider SERVICE_PROVIDER = ServiceRegistry.first(CloudServiceProvider.class);
 
   protected final Sign base;
   protected final Function<String, C> lineMapper;
@@ -58,25 +63,43 @@ public abstract class PlatformSign<P, C> implements Comparable<PlatformSign<P, C
 
   public void handleInteract(@NonNull UUID playerUniqueId, @NonNull P playerInstance) {
     // keep a local copy of the target as the view might change due to concurrent update calls
-    var target = this.target;
-    if (target == null) {
+    AtomicReference<ServiceInfoSnapshot> target = new AtomicReference<>(this.target);
+    if (target.get() == null) {
       return;
     }
 
     // get the current state from the service snapshot, ignore if the target is not yet ready to accept players
-    var state = BridgeServiceHelper.guessStateFromServiceInfoSnapshot(target);
+    var state = BridgeServiceHelper.guessStateFromServiceInfoSnapshot(target.get());
     if (state == BridgeServiceHelper.ServiceInfoState.STOPPED
       || state == BridgeServiceHelper.ServiceInfoState.STARTING) {
       return;
     }
 
     // get the target to connect the player to, null indicates that the event was cancelled
-    target = this.callSignInteractEvent(playerInstance);
-    if (target == null) {
+    target.set(this.callSignInteractEvent(playerInstance));
+    if (target.get() == null) {
       return;
     }
 
-    PLAYER_MANAGER.playerExecutor(playerUniqueId).connect(target.name());
+    if (target.get().configuration().serviceId().environmentName().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+      && target.get().configuration().serviceId().taskServiceId() == 1) {
+
+      String taskName = target.get().configuration().serviceId().taskName();
+
+      SERVICE_PROVIDER.servicesByTaskAsync(taskName)
+        .whenComplete((services, throwable) -> {
+          if (throwable != null) {
+            return;
+          }
+          ServerSelectorType selectorType = ServerSelectorType.LOWEST_PLAYERS;
+          services.stream()
+            .filter(serviceInfoSnapshot -> serviceInfoSnapshot.configuration().serviceId().taskServiceId() != 1)
+            .min(selectorType.comparator())
+            .ifPresent(target::set);
+        });
+    }
+
+    PLAYER_MANAGER.playerExecutor(playerUniqueId).connect(target.get().name());
   }
 
   public int priority() {

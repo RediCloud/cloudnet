@@ -16,6 +16,10 @@
 
 package eu.cloudnetservice.modules.signs.util;
 
+import static eu.cloudnetservice.modules.bridge.BridgeServiceHelper.ServiceInfoState.STARTING;
+import static eu.cloudnetservice.modules.bridge.BridgeServiceHelper.ServiceInfoState.STOPPED;
+
+import eu.cloudnetservice.driver.service.ServiceEnvironmentType;
 import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
 import eu.cloudnetservice.modules.bridge.BridgeServiceHelper;
 import eu.cloudnetservice.modules.signs.configuration.SignConfigurationEntry;
@@ -41,8 +45,14 @@ public final class PriorityUtil {
   }
 
   public static int priority(@NonNull ServiceInfoSnapshot snapshot, boolean lowerFullToSearching) {
+    boolean multiPaperMaster = snapshot.configuration().serviceId()
+      .environmentName().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+      && snapshot.configuration().serviceId().taskServiceId() == 1;
     // Get the state of the service
     var state = BridgeServiceHelper.guessStateFromServiceInfoSnapshot(snapshot);
+    if (state != STARTING && state != STOPPED && multiPaperMaster) {
+      return 5;
+    }
     return switch (state) {
       // full (premium) service are preferred
       case FULL_ONLINE -> lowerFullToSearching ? 1 : 4;
