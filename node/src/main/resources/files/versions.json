@@ -12,6 +12,16 @@
       }
     },
     {
+      "name": "MULTI_PAPER",
+      "defaultServiceStartPort": 44955,
+      "defaultProcessArguments": [
+        "nogui"
+      ],
+      "properties": {
+        "isJavaServer": true
+      }
+    },
+    {
       "name": "MODDED_MINECRAFT_SERVER",
       "defaultServiceStartPort": 44955,
       "defaultProcessArguments": [
@@ -67,6 +77,51 @@
     }
   ],
   "versions": [
+    {
+      "name": "multipaper-master",
+      "environmentType": "MULTI_PAPER",
+      "website": "https://multipaper.io",
+      "installSteps": [
+        "DOWNLOAD"
+      ],
+      "versions": [
+        {
+          "name": "1.19.2",
+          "url": "https://multipaper.io/api/v2/projects/multipaper/versions/1.19.2/builds/37/downloads/MultiPaper-Master-2.10.1-all.jar",
+          "properties": {
+            "versionGroup": "1.19.2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "multipaper-node",
+      "environmentType": "MULTI_PAPER",
+      "website": "https://multipaper.io",
+      "installSteps": [
+        "DOWNLOAD",
+        "BUILD",
+        "COPY_FILTER"
+      ],
+      "versions": [
+        {
+          "name": "1.19.2",
+          "cacheFiles": false,
+          "url": "https://multipaper.io/api/v2/projects/multipaper/versions/1.19.2/builds/37/downloads/multipaper-1.19.2-37.jar",
+          "properties": {
+            "copy": {
+              "cache/.*": "/",
+              "versions/.*": "/",
+              "multipaper-node\\.jar": "multipaper-node.jar"
+            },
+            "jvmOptions": [
+              "-Dpaperclip.patchonly=true"
+            ],
+            "versionGroup": "1.19.2"
+          }
+        }
+      ]
+    },
     {
       "name": "paper",
       "environmentType": "MINECRAFT_SERVER",
