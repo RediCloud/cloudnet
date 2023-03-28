@@ -34,6 +34,7 @@ import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import eu.cloudnetservice.modules.bridge.node.player.NodePlayerManager;
 import eu.cloudnetservice.modules.bridge.player.CloudOfflinePlayer;
 import eu.cloudnetservice.modules.bridge.player.CloudPlayer;
+import eu.cloudnetservice.modules.bridge.player.executor.ServerSelectorType;
 import eu.cloudnetservice.node.command.annotation.CommandAlias;
 import eu.cloudnetservice.node.command.annotation.Description;
 import eu.cloudnetservice.node.command.exception.ArgumentNotAvailableException;
@@ -62,7 +63,10 @@ public class PlayersCommand {
   private final CloudServiceProvider serviceProvider;
 
   @Inject
-  public PlayersCommand(@NonNull NodePlayerManager playerManager, @NonNull CloudServiceProvider serviceProvider) {
+  public PlayersCommand(
+    @NonNull NodePlayerManager playerManager,
+    @NonNull CloudServiceProvider serviceProvider
+  ) {
     this.playerManager = playerManager;
     this.serviceProvider = serviceProvider;
   }
@@ -256,8 +260,29 @@ public class PlayersCommand {
       source.sendMessage(
         I18n.trans("module-bridge-command-players-send-player-server", player.name(), player.uniqueId()));
     } else {
-      source.sendMessage(
-        I18n.trans("module-bridge-command-players-send-player-server-not-found", player.name(), player.uniqueId()));
+
+      if (server.configuration().serviceId().environmentName().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+        && server.configuration().serviceId().taskServiceId() == 1) { // The multipaper-master
+
+        String taskName = server.configuration().serviceId().taskName();
+        this.serviceProvider.servicesByTaskAsync(taskName)
+          .whenComplete((services, throwable) -> {
+            if (throwable != null) {
+              source.sendMessage(
+                I18n.trans("module-bridge-command-players-send-player-server-not-found", player.name(),
+                  player.uniqueId()));
+              return;
+            }
+            ServerSelectorType selectorType = ServerSelectorType.LOWEST_PLAYERS;
+            services.stream()
+              .filter(serviceInfoSnapshot -> serviceInfoSnapshot.configuration().serviceId().taskServiceId() != 1)
+              .min(selectorType.comparator())
+              .ifPresentOrElse(service -> player.playerExecutor().connect(service.name()),
+                () -> source.sendMessage(
+                  I18n.trans("module-bridge-command-players-send-player-server-not-found", player.name(),
+                    player.uniqueId())));
+          });
+      }
     }
   }
 }
