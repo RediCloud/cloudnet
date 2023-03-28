@@ -33,6 +33,7 @@ import eu.cloudnetservice.driver.network.def.NetworkConstants;
 import eu.cloudnetservice.driver.service.ServiceConfiguration;
 import eu.cloudnetservice.driver.service.ServiceEnvironment;
 import eu.cloudnetservice.driver.service.ServiceEnvironmentType;
+import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
 import eu.cloudnetservice.node.TickLoop;
 import eu.cloudnetservice.node.config.Configuration;
 import eu.cloudnetservice.node.event.service.CloudServicePostProcessStartEvent;
@@ -145,6 +146,21 @@ public class JVMService extends AbstractService {
     arguments.add("-Dservice.bind.host=" + this.serviceConfiguration().hostAddress());
     arguments.add("-Dservice.bind.port=" + this.serviceConfiguration().port());
 
+    // set master connection infos for multipaper
+    if (environmentType.name().equals(ServiceEnvironmentType.MULTI_PAPER.name()) && serviceId().taskServiceId() != 1) {
+      ServiceInfoSnapshot masterService = this.cloudServiceManager().serviceByName(
+        serviceId().taskName() + serviceId().nameSplitter() + "1"
+      );
+      if (masterService == null) {
+        LOGGER.severe("Can´t start service %s because there is no mulitpaper-master (%s) connected!",
+          null,
+          serviceId(), serviceId().taskName() + serviceId().nameSplitter() + "1");
+        return;
+      }
+      String masterHost = masterService.configuration().hostAddress() + ":" + masterService.configuration().port();
+      arguments.add("-DmultipaperMasterAddress=" + masterHost);
+    }
+
     // add the class path and the main class of the wrapper
     arguments.add("-cp");
     arguments.add(classPath);
@@ -156,8 +172,19 @@ public class JVMService extends AbstractService {
     arguments.add(applicationInformation.first().toAbsolutePath().toString());
     arguments.add(Boolean.toString(applicationInformation.second().preloadJarContent()));
 
+    // master port for multipaper
+    // 1 = master service
+    if (environmentType.name().equals(ServiceEnvironmentType.MULTI_PAPER.name()) && serviceId().taskServiceId() == 1) {
+      arguments.add(Integer.toString(this.serviceConfiguration.port()));
+    }
+
     // add all process parameters
-    arguments.addAll(environmentType.defaultProcessArguments());
+    arguments.addAll(environmentType.defaultProcessArguments().stream()
+      .filter(s -> {
+          return !environmentType.name().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+            || !s.equals("nogui") || serviceId().taskServiceId() != 1;
+        }
+      ).toList());
     arguments.addAll(this.serviceConfiguration().processConfig().processParameters());
 
     // try to start the process like that
@@ -168,6 +195,7 @@ public class JVMService extends AbstractService {
   protected void stopProcess() {
     if (this.process != null) {
       // try to send a shutdown command
+      this.runCommand("shutdown");
       this.runCommand("end");
       this.runCommand("stop");
 
@@ -306,15 +334,25 @@ public class JVMService extends AbstractService {
           if (!filename.endsWith(".jar")) {
             return false;
           }
+
+          // set jar to multipaper-master jar if this service is the master service
+          // otherwise use the multipaper-node jar
+          if (environmentType.name().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+            && filename.contains("node") && serviceId().taskServiceId() == 1) {
+            return false;
+          }
+
           // search if any environment is in the name of the file
           for (var environment : environments) {
             if (filename.contains(environment)) {
               return true;
             }
           }
+
           // not an application file for the environment
           return false;
-        }).min((left, right) -> {
+        })
+        .min((left, right) -> {
           // get the first number from the left path
           var leftMatcher = FILE_NUMBER_PATTERN.matcher(left.getFileName().toString());
           // no match -> neutral
