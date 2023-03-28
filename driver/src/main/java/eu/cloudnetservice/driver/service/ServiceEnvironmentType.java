@@ -80,6 +80,14 @@ public final class ServiceEnvironmentType
     .properties(JsonDocument.newDocument().writeProperty(PE_SERVER, true))
     .build();
   /**
+   * The default multipaper service environment type (multiple paper server connected via a master server).
+   */
+  public static final ServiceEnvironmentType MULTI_PAPER = ServiceEnvironmentType.builder()
+    .name("MULTI_PAPER")
+    .defaultProcessArguments(Set.of("nogui"))
+    .properties(JsonDocument.newDocument().writeProperty(JAVA_SERVER, true))
+    .build();
+  /**
    * The default minecraft server service environment type. This applies to all services which don't need special
    * configuration to run a wrapped minecraft java edition server in any way (Java Edition server).
    */
