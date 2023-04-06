@@ -4,7 +4,7 @@
 &c      / /  | |/ _ \| | | |/ _` |&b/  \/ /_\    / /\/
 &c     / /___| | (_) | |_| | (_| &b/ /\  //__   / /
 &c     \____/|_|\___/ \__,_|\__,_&b\_\ \/\__/   \/
-&7                               (%version%)
+&7     Custom version by Suqatri - based on %version%
 
      &8«&b*&8»&7 The Cloud Network Environment Technology
      &8«&b*&8»&7 The modern Minecraft service management solution
