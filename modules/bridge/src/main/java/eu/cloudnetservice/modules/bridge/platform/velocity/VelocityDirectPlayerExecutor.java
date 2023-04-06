@@ -20,6 +20,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import eu.cloudnetservice.common.collection.Pair;
+import eu.cloudnetservice.driver.service.ServiceEnvironmentType;
 import eu.cloudnetservice.modules.bridge.platform.PlatformBridgeManagement;
 import eu.cloudnetservice.modules.bridge.platform.PlatformPlayerExecutorAdapter;
 import eu.cloudnetservice.modules.bridge.player.executor.ServerSelectorType;
@@ -52,6 +53,15 @@ final class VelocityDirectPlayerExecutor extends PlatformPlayerExecutorAdapter<P
 
   @Override
   public void connect(@NonNull String serviceName) {
+    var cachedService = management.cachedServices().parallelStream()
+      .filter(service -> service.name().equals(serviceName))
+      .findFirst();
+    if (cachedService.isPresent()) {
+      if (isMultiPaperMaster(cachedService.get().name())) {
+        connectToTask(cachedService.get().serviceId().taskName(), ServerSelectorType.LOWEST_PLAYERS);
+        return;
+      }
+    }
     this.proxyServer.getServer(serviceName).ifPresent(
       server -> this.forEach(player -> player.createConnectionRequest(server).fireAndForget()));
   }
@@ -62,6 +72,7 @@ final class VelocityDirectPlayerExecutor extends PlatformPlayerExecutorAdapter<P
       .sorted(selectorType.comparator())
       .map(server -> this.proxyServer.getServer(server.name()))
       .filter(Optional::isPresent)
+      .filter(server -> !this.isMultiPaperMaster(server.get().getServerInfo().getName()))
       .map(Optional::get)
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.createConnectionRequest(server).fireAndForget()));
@@ -86,6 +97,7 @@ final class VelocityDirectPlayerExecutor extends PlatformPlayerExecutorAdapter<P
       .sorted(selectorType.comparator())
       .map(service -> this.proxyServer.getServer(service.name()))
       .filter(Optional::isPresent)
+      .filter(server -> !this.isMultiPaperMaster(server.get().getServerInfo().getName()))
       .map(Optional::get)
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.createConnectionRequest(server).fireAndForget()));
@@ -98,6 +110,7 @@ final class VelocityDirectPlayerExecutor extends PlatformPlayerExecutorAdapter<P
       .sorted(selectorType.comparator())
       .map(service -> this.proxyServer.getServer(service.name()))
       .filter(Optional::isPresent)
+      .filter(server -> !this.isMultiPaperMaster(server.get().getServerInfo().getName()))
       .map(Optional::get)
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.createConnectionRequest(server).fireAndForget()));
@@ -134,5 +147,17 @@ final class VelocityDirectPlayerExecutor extends PlatformPlayerExecutorAdapter<P
         player.spoofChatInput('/' + command);
       }
     }));
+  }
+
+  public boolean isMultiPaperMaster(String serverName) {
+    var cachedServiceInfo = this.management.cachedServices().parallelStream()
+      .filter(service -> service.name().equals(serverName))
+      .findFirst();
+    if (cachedServiceInfo.isPresent()) {
+      var serviceId = cachedServiceInfo.get().serviceId();
+      return serviceId.environment().name().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+        && serviceId.taskServiceId() == 1;
+    }
+    return false;
   }
 }

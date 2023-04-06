@@ -22,6 +22,7 @@ import static net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializ
 import dev.waterdog.waterdogpe.ProxyServer;
 import dev.waterdog.waterdogpe.player.ProxiedPlayer;
 import eu.cloudnetservice.common.collection.Pair;
+import eu.cloudnetservice.driver.service.ServiceEnvironmentType;
 import eu.cloudnetservice.modules.bridge.platform.PlatformBridgeManagement;
 import eu.cloudnetservice.modules.bridge.platform.PlatformPlayerExecutorAdapter;
 import eu.cloudnetservice.modules.bridge.player.executor.ServerSelectorType;
@@ -52,6 +53,15 @@ final class WaterDogPEDirectPlayerExecutor extends PlatformPlayerExecutorAdapter
   @Override
   public void connect(@NonNull String serviceName) {
     var serverInfo = this.proxyServer.getServerInfo(serviceName);
+    var cachedService = management.cachedServices().parallelStream()
+      .filter(service -> service.name().equals(serviceName))
+      .findFirst();
+    if (cachedService.isPresent()) {
+      if (isMultiPaperMaster(cachedService.get().name())) {
+        connectToTask(cachedService.get().serviceId().taskName(), ServerSelectorType.LOWEST_PLAYERS);
+        return;
+      }
+    }
     if (serverInfo != null) {
       this.forEach(player -> player.connect(serverInfo));
     }
@@ -63,6 +73,7 @@ final class WaterDogPEDirectPlayerExecutor extends PlatformPlayerExecutorAdapter
       .sorted(selectorType.comparator())
       .map(service -> this.proxyServer.getServerInfo(service.name()))
       .filter(Objects::nonNull)
+      .filter(server -> !isMultiPaperMaster(server.getServerName()))
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.connect(server)));
   }
@@ -86,6 +97,7 @@ final class WaterDogPEDirectPlayerExecutor extends PlatformPlayerExecutorAdapter
       .sorted(selectorType.comparator())
       .map(service -> this.proxyServer.getServerInfo(service.name()))
       .filter(Objects::nonNull)
+      .filter(server -> !isMultiPaperMaster(server.getServerName()))
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.connect(server)));
   }
@@ -97,6 +109,7 @@ final class WaterDogPEDirectPlayerExecutor extends PlatformPlayerExecutorAdapter
       .sorted(selectorType.comparator())
       .map(service -> this.proxyServer.getServerInfo(service.name()))
       .filter(Objects::nonNull)
+      .filter(server -> !isMultiPaperMaster(server.getServerName()))
       .findFirst()
       .ifPresent(server -> this.forEach(player -> player.connect(server)));
   }
@@ -127,5 +140,17 @@ final class WaterDogPEDirectPlayerExecutor extends PlatformPlayerExecutorAdapter
         player.chat('/' + command);
       }
     });
+  }
+
+  public boolean isMultiPaperMaster(String serverName) {
+    var cachedServiceInfo = this.management.cachedServices().parallelStream()
+      .filter(service -> service.name().equals(serverName))
+      .findFirst();
+    if (cachedServiceInfo.isPresent()) {
+      var serviceId = cachedServiceInfo.get().serviceId();
+      return serviceId.environment().name().equals(ServiceEnvironmentType.MULTI_PAPER.name())
+        && serviceId.taskServiceId() == 1;
+    }
+    return false;
   }
 }

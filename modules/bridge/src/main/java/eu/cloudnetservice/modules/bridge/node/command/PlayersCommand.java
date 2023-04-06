@@ -275,6 +275,12 @@ public class PlayersCommand {
             }
             ServerSelectorType selectorType = ServerSelectorType.LOWEST_PLAYERS;
             services.stream()
+              .filter(serviceInfoSnapshot -> {
+                if (player.connectedService() == null) {
+                  return true;
+                }
+                return !serviceInfoSnapshot.name().equals(player.connectedService().serverName());
+              })
               .filter(serviceInfoSnapshot -> serviceInfoSnapshot.configuration().serviceId().taskServiceId() != 1)
               .min(selectorType.comparator())
               .ifPresentOrElse(service -> player.playerExecutor().connect(service.name()),
